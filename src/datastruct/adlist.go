@@ -11,11 +11,23 @@ const (
 )
 
 /*
+双端链表节点
+*/
+type listNode struct {
+	// 前置节点
+	prev *listNode
+	// 后置节点
+	next *listNode
+	// 节点的值
+	value *interface{}
+}
+
+/*
 双端链表迭代器
 */
-type ListIter struct {
+type listIter struct {
 	// 当前迭代到的节点
-	next *ListNode
+	next *listNode
 	// 迭代的方向
 	direction int
 }
@@ -25,84 +37,80 @@ type ListIter struct {
 */
 type List struct {
 	// 表头节点
-	head *ListNode
+	head *listNode
 	// 表尾节点
-	tail *ListNode
+	tail *listNode
 	// 节点值复制函数
-	dup func(value NodeValue) NodeValue
+	dup func(value *interface{}) *interface{}
 	// 节点值释放函数
 	free func()
 	// 节点值对比函数
-	match func(value1 NodeValue, value2 NodeValue) bool
+	match func(value1 *interface{}, value2 *interface{}) bool
 	// 链表所包含的节点数量
 	len int
 }
 
 // 返回链表所包含的节点数量
-func (self *List) ListLength() int {
-	return self.len
+func (list *List) ListLength() int {
+	return list.len
 }
 
-func (self *List) ListFirst() *ListNode {
-	return self.head
+// 返回给定链表的表头节点
+func (list *List) ListFirst() *listNode {
+	return list.head
 }
 
-func (self *List) ListLast() *ListNode {
-	return self.tail
+// 返回给定链表的表尾节点
+func (list *List) ListLast() *listNode {
+	return list.tail
 }
 
-type NodeValue interface{}
-
-/*
-双端链表节点
-*/
-type ListNode struct {
-	prev  *ListNode
-	next  *ListNode
-	value NodeValue
+// 返回给定节点的前置节点
+func (list *listNode) ListPrevNode() *listNode {
+	return list.prev
 }
 
-func (self *ListNode) ListPrevNode() *ListNode {
-	return self.prev
+// 返回给定节点的后置位置
+func (list *listNode) ListNextNode() *listNode {
+	return list.next
 }
 
-func (self *ListNode) ListNextNode() *ListNode {
-	return self.next
-}
-
-func (self *ListNode) ListNodeValue() NodeValue {
-	return self.value
+// 返回给定节点的值
+func (list *listNode) ListNodeValue() *interface{} {
+	return list.value
 }
 
 // 设置链表的值复制函数为f
-func (self *List) ListSetDupMethod(f func()) {
-	self.dup = f
+func (list *List) ListSetDupMethod(f func(value *interface{}) *interface{}) {
+	list.dup = f
 }
 
 // 设置链表的值释放函数为f
-func (self *List) ListSetFreeMethod(f func()) {
-	self.free = f
+func (list *List) ListSetFreeMethod(f func()) {
+	list.free = f
 }
 
 // 设置链表的对比函数为f
-func (self *List) ListSetMatchMethod(f func(value1 NodeValue, value2 NodeValue) bool) {
-	self.match = f
+func (list *List) ListSetMatchMethod(f func(value1 *interface{}, value2 *interface{}) bool) {
+	list.match = f
 }
 
 // 返回链表的值复制函数
-func (self *List) ListGetDupMethod() func(value NodeValue) NodeValue {
-	return self.dup
+func (list *List) ListGetDupMethod() func(value *interface{}) *interface{} {
+	return list.dup
 }
 
 // 返回链表的值释放函数
-func (self *List) ListGetFree() func() {
-	return self.free
+func (list *List) ListGetFree() func() {
+	return list.free
 }
 
 // 返回链表的值对比函数
-func (self *List) ListGetMatchMethod() func(value1 NodeValue, value2 NodeValue) bool {
-	return self.match
+func (list *List) ListGetMatchMethod() func(value1 *interface{}, value2 *interface{}) bool {
+	return list.match
 }
+
+//===========================================================
 
 // 创建一个新的链表
 func ListCreate() (list *List, err error) {
@@ -120,58 +128,58 @@ func ListRelease(list *List) {
 }
 
 // 添加节点到表头，头插法
-func (self *List) ListAddNodeHead(value NodeValue) {
-	node := &ListNode{}
+func (list *List) ListAddNodeHead(value *interface{}) {
+	node := &listNode{}
 	node.value = value
-	if self.len == 0 {
-		self.head, self.tail = node, node
+	if list.len == 0 {
+		list.head, list.tail = node, node
 		node.prev, node.next = nil, nil
 	} else {
 		node.prev = nil
-		node.next = self.head
-		self.head.prev = node
-		self.head = node
+		node.next = list.head
+		list.head.prev = node
+		list.head = node
 	}
-	self.len++
+	list.len++
 }
 
 // 添加节点到表尾，尾插法
-func (self *List) ListAddNodeTail(value NodeValue) {
-	node := &ListNode{}
+func (list *List) ListAddNodeTail(value *interface{}) {
+	node := &listNode{}
 	node.value = value
-	if self.len == 0 {
-		self.head, self.tail = node, node
+	if list.len == 0 {
+		list.head, list.tail = node, node
 		node.prev, node.next = nil, nil
 	} else {
-		node.prev = self.tail
+		node.prev = list.tail
 		node.next = nil
-		self.tail.next = node
-		self.tail = node
+		list.tail.next = node
+		list.tail = node
 	}
-	self.len++
+	list.len++
 }
 
 // 创建一个新节点，将其添加到 oldNode 节点之前或之后
 // 如果 after 为 0，添加到 oldNode 节点之前
 // 如果 after 为 1，添加到 oldNode 节点之后
-func (self *List) ListInsertNode(oldNode *ListNode, value NodeValue, after int) {
-	node := &ListNode{}
+func (list *List) ListInsertNode(oldNode *listNode, value *interface{}, after int) {
+	node := &listNode{}
 	node.value = value
 	// 添加到给定节点之后
 	if after == 1 {
 		node.prev = oldNode
 		node.next = oldNode.next
 		// 如果oldNode原为表尾节点
-		if self.tail == oldNode {
-			self.tail = node
+		if list.tail == oldNode {
+			list.tail = node
 		}
 	} else {
 		// 添加节点到指定节点之前
 		node.next = oldNode
 		node.prev = oldNode.prev
 		// 如果给定节点是表头节点
-		if self.head == oldNode {
-			self.head = node
+		if list.head == oldNode {
+			list.head = node
 		}
 	}
 
@@ -183,61 +191,61 @@ func (self *List) ListInsertNode(oldNode *ListNode, value NodeValue, after int) 
 		node.next.prev = node
 	}
 
-	self.len++
+	list.len++
 }
 
 // 删除指定节点
-func (self *List) ListDelNode(node *ListNode) {
+func (list *List) ListDelNode(node *listNode) {
 	if node.prev != nil {
 		node.prev.next = node.next
 	} else {
-		self.head = node.next
+		list.head = node.next
 	}
 
 	if node.next != nil {
 		node.next.prev = node.prev
 	} else {
-		self.tail = node.prev
+		list.tail = node.prev
 	}
 
-	self.len--
+	list.len--
 }
 
 // 为链表创建一个迭代器
 // direction  AL_START_HEAD ：从表头向表尾迭代
 // direction  AL_START_TAIL ：从表尾向表头迭代
-func (self *List) ListGetIterator(direction int) *ListIter {
-	iter := &ListIter{}
+func (list *List) ListGetIterator(direction int) *listIter {
+	iter := &listIter{}
 	if direction == AL_START_HEAD {
-		iter.next = self.head
+		iter.next = list.head
 	} else {
-		iter.next = self.tail
+		iter.next = list.tail
 	}
 	iter.direction = direction
 	return iter
 }
 
 // 释放迭代器
-func ListReleaseIterator(iter *ListIter) {
+func ListReleaseIterator(iter *listIter) {
 	iter = nil
 }
 
 // 将迭代器的方向设置为 AL_START_HEAD
 // 并将迭代器的指针重新指向表头节点
-func (self *List) ListRewind(li *ListIter) {
-	li.next = self.head
+func (list *List) ListRewind(li *listIter) {
+	li.next = list.head
 	li.direction = AL_START_HEAD
 }
 
 // 将迭代器的方向设置为 AL_START_TAIL
 // 并将迭代器的指针重新指向表尾节点
-func (self *List) ListRewindTail(li *ListIter) {
-	li.next = self.tail
+func (list *List) ListRewindTail(li *listIter) {
+	li.next = list.tail
 	li.direction = AL_START_TAIL
 }
 
 // 返回迭代器当前所指向的节点
-func ListNext(iter *ListIter) *ListNode {
+func ListNext(iter *listIter) *listNode {
 	current := iter.next
 	if current != nil {
 		if iter.direction == AL_START_HEAD {
@@ -249,24 +257,25 @@ func ListNext(iter *ListIter) *ListNode {
 	return current
 }
 
-func (self *List) ListDup() *List {
-	list, err := ListCreate()
+// 复制整个链表
+func (list *List) ListDup() *List {
+	newList, err := ListCreate()
 	if err != nil {
 		return nil
 	}
-	list.dup = self.dup
-	list.free = self.free
-	list.match = self.match
+	newList.dup = list.dup
+	newList.free = list.free
+	newList.match = list.match
 
-	iter := self.ListGetIterator(AL_START_HEAD)
+	iter := list.ListGetIterator(AL_START_HEAD)
 	node := ListNext(iter)
 	for node != nil {
-		var value NodeValue
+		var value *interface{}
 		// 如果有复制函数，则使用复制函数复制值
-		if list.dup != nil {
-			value = list.dup(node.value)
+		if newList.dup != nil {
+			value = newList.dup(node.value)
 			if value == nil {
-				ListRelease(list)
+				ListRelease(newList)
 				ListReleaseIterator(iter)
 				return nil
 			}
@@ -274,25 +283,25 @@ func (self *List) ListDup() *List {
 			value = node.value
 		}
 		// 将节点添加到链表
-		list.ListAddNodeTail(value)
+		newList.ListAddNodeTail(value)
 
 		node = ListNext(iter)
 	}
 	// 释放迭代器
 	ListReleaseIterator(iter)
-	return list
+	return newList
 }
 
 // 查询链表中的key值节点
 // 对比操作由链表的 match 函数负责进行
 // 如果没有设置 match 函数，则直接比较值
 // 匹配成功返回第一个匹配的节点，否则返回nil
-func (self *List) ListSearchKey(key NodeValue) *ListNode {
-	iter := self.ListGetIterator(AL_START_HEAD)
+func (list *List) ListSearchKey(key *interface{}) *listNode {
+	iter := list.ListGetIterator(AL_START_HEAD)
 	node := ListNext(iter)
 	for node != nil {
-		if self.match != nil {
-			if self.match(node.value, key) {
+		if list.match != nil {
+			if list.match(node.value, key) {
 				ListReleaseIterator(iter)
 				return node
 			}
@@ -310,18 +319,18 @@ func (self *List) ListSearchKey(key NodeValue) *ListNode {
 
 // 返回链表在给定索引上的值
 // 索引可以为负数，超出索引范围返回nil
-func (self *List) ListIndex(index int) *ListNode {
-	var n *ListNode
+func (list *List) ListIndex(index int) *listNode {
+	var n *listNode
 	// 如果索引为负数，从表尾开始查找
 	if index < 0 {
 		index = (-index) - 1
-		n = self.tail
+		n = list.tail
 		for index > 0 && n != nil {
 			n = n.prev
 			index--
 		}
 	} else {
-		n = self.head
+		n = list.head
 		for index > 0 && n != nil {
 			n = n.next
 			index--
@@ -331,18 +340,18 @@ func (self *List) ListIndex(index int) *ListNode {
 }
 
 // 取出链表的表尾节点，并将它移动到表头，成为新的表头节点
-func (self *List) ListRotate() {
-	tail := self.tail
-	if self.ListLength() <= 1 {
+func (list *List) ListRotate() {
+	tail := list.tail
+	if list.ListLength() <= 1 {
 		return
 	}
 
 	// 重置表尾节点
-	self.tail = tail.prev
-	self.tail.next = nil
+	list.tail = tail.prev
+	list.tail.next = nil
 	// 重置表头节点
-	self.head.prev = tail
+	list.head.prev = tail
 	tail.prev = nil
-	tail.next = self.head
-	self.head = tail
+	tail.next = list.head
+	list.head = tail
 }
