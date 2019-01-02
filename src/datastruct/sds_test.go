@@ -19,3 +19,14 @@ func TestSdsMakeRoomFor(t *testing.T) {
 		t.Errorf("error, len %d ,cap %d", len(newSds), cap(newSds))
 	}
 }
+
+func TestHexDigitToInt(t *testing.T) {
+	i := hexDigitToInt('1')
+	if i != 1 {
+		t.Error("error != 1")
+	}
+	toInt := hexDigitToInt('b')
+	if toInt != 11 {
+		t.Error("err != 11")
+	}
+}
