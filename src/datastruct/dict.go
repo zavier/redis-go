@@ -3,7 +3,9 @@
 */
 package datastruct
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	// 字典操作成功
@@ -14,7 +16,7 @@ const (
 
 // 哈希表节点的值
 type dictValue struct {
-	val *interface{}
+	val interface{}
 	u64 uint64
 	s64 int64
 }
@@ -22,7 +24,7 @@ type dictValue struct {
 // 哈希表节点
 type DictEntry struct {
 	// 键
-	key *interface{}
+	key interface{}
 	// 值
 	v dictValue
 	// 指向下一个哈希表节点，hash冲突时生成链表使用
@@ -32,17 +34,17 @@ type DictEntry struct {
 // 字典类型特定函数
 type dictType struct {
 	// 计算哈希值的函数
-	hashFunction func(key *interface{}) uint32
+	hashFunction func(key interface{}) uint
 	// 复制键的函数
-	keyDup func(privdata *interface{}, key *interface{}) *interface{}
+	keyDup func(privdata interface{}, key interface{}) interface{}
 	// 复制值的函数
-	valDup func(privdata *interface{}, obj *interface{}) *interface{}
+	valDup func(privdata interface{}, obj interface{}) interface{}
 	// 对比键的函数
-	keyCompare func(privdata *interface{}, key1 *interface{}, key2 *interface{}) int
+	keyCompare func(privdata interface{}, key1 interface{}, key2 interface{}) int
 	// 销毁键的函数
-	keyDestructor func(privdata *interface{}, key *interface{})
+	keyDestructor func(privdata interface{}, key interface{})
 	// 销毁值的函数
-	valDestructor func(privdata *interface{}, obj *interface{})
+	valDestructor func(privdata interface{}, obj interface{})
 }
 
 // 哈希表
@@ -51,21 +53,21 @@ type dictht struct {
 	// 哈希表数组
 	table []*DictEntry
 	// 哈希表大小
-	size uint32
+	size uint
 	// 哈希表大小掩码，用于计算索引值，总是等于 size -1
 	// 一般使用hash值 & (size-1) 来定位索引
-	sizemask uint32
+	sizemask uint
 	// 该哈希表已有节点的数量
-	used uint32
+	used uint
 }
 
 // 字典
 type dict struct {
 	// 类型特定函数
-	dtype *dictType
+	dtype dictType
 	// 私有数据
-	privdata *interface{}
-	// 哈希表
+	privdata interface{}
+	// 哈希表(一共两个，rehash使用)
 	ht [2]dictht
 	// rehash进行到的索引，用于控制rehash进程
 	// 当 rehash 不在进行时，值为-1
@@ -100,10 +102,10 @@ type dictIterator struct {
 }
 
 // 哈希表的数组的初始大小
-const DICT_HT_INITIAL_SIZE uint32 = 4
+const DICT_HT_INITIAL_SIZE uint = 4
 
 // 释放给定字典节点的值
-func (d *dict) dictFreeVal(entry *DictEntry) {
+func (d *dict) dictFreeVal(entry DictEntry) {
 	valDestructor := d.dtype.valDestructor
 	if valDestructor != nil {
 		valDestructor(d.privdata, entry.v.val)
@@ -111,7 +113,7 @@ func (d *dict) dictFreeVal(entry *DictEntry) {
 }
 
 // 设置给定字典节点的值
-func (d *dict) dictSetVal(entry *DictEntry, val *interface{}) {
+func (d *dict) dictSetVal(entry *DictEntry, val interface{}) {
 	if d.dtype.valDup != nil {
 		entry.v.val = d.dtype.valDup(d.privdata, val)
 	} else {
@@ -120,22 +122,24 @@ func (d *dict) dictSetVal(entry *DictEntry, val *interface{}) {
 }
 
 // 将一个有符号整数设为节点的值
-func dictSetSignedIntegerVal() {
-
+func dictSetSignedIntegerVal(entry *DictEntry, val interface{}) {
+	entry.v.s64 = val.(int64)
 }
 
 // 将一个无符号整数设为节点的值
-func dictSetUnsignedIntegerVal() {
-
+func dictSetUnsignedIntegerVal(entry *DictEntry, val interface{}) {
+	entry.v.u64 = val.(uint64)
 }
 
 // 释放给定字典节点的键
-func dictFreeKey() {
-
+func dictFreeKey(d *dict, entry *DictEntry) {
+	if d.dtype.keyDestructor != nil {
+		d.dtype.keyDestructor(d.privdata, entry.key)
+	}
 }
 
 // 设置给定字典节点的键
-func dictSetKey(d *dict, entry *DictEntry, key *interface{}) {
+func dictSetKey(d *dict, entry *DictEntry, key interface{}) {
 	if d.dtype.keyDup != nil {
 		entry.key = d.dtype.keyDup(d.privdata, key)
 	} else {
@@ -144,7 +148,7 @@ func dictSetKey(d *dict, entry *DictEntry, key *interface{}) {
 }
 
 // 比对两个键
-func dictCompareKeys(d *dict, key1 *interface{}, key2 *interface{}) bool {
+func dictCompareKeys(d *dict, key1 interface{}, key2 interface{}) bool {
 	if d.dtype.keyCompare != nil {
 		compare := d.dtype.keyCompare(d.privdata, key1, key2)
 		return compare == 0
@@ -153,7 +157,7 @@ func dictCompareKeys(d *dict, key1 *interface{}, key2 *interface{}) bool {
 }
 
 // 计算给定键的哈希值
-func dictHashKey(d *dict, key *interface{}) uint32 {
+func dictHashKey(d *dict, key interface{}) uint {
 	return d.dtype.hashFunction(key)
 }
 
@@ -163,28 +167,28 @@ func dictGetKey() {
 }
 
 // 返回获取给定节点的值
-func dictGetVal() {
-
+func dictGetVal(he *DictEntry) interface{} {
+	return he.v.val
 }
 
 // 返回获取给定节点的有符号整数值
-func dictGetSignedIntegerVal() {
-
+func dictGetSignedIntegerVal(he *DictEntry) int64 {
+	return he.v.s64
 }
 
 // 返回给定节点的无符号整数值
-func dictGetUnsignedIntegerVal() {
-
+func dictGetUnsignedIntegerVal(he *DictEntry) uint64 {
+	return he.v.u64
 }
 
 // 返回给定字典的大小
-func dictSlots() {
-
+func dictSlots(d *dict) uint {
+	return d.ht[0].size + d.ht[1].size
 }
 
 // 返回字典的已有节点数量
-func dictSize() {
-
+func dictSize(d *dict) uint {
+	return d.ht[0].size + d.ht[1].size
 }
 
 // 查看字典是否正在 rehash
@@ -222,8 +226,8 @@ func DictGetHashFunctionSeed() uint32 {
 }
 
 func DictGenHashFunction(key interface{}, len int) uint32 {
-	//因为Go无法操作指针移动，暂时无法实现C的代码
-	return key.(uint32)
+	// todo
+	return uint32(5)
 }
 
 func DictGenCaseHashFunction(buf string) uint32 {
@@ -236,7 +240,7 @@ func DictGenCaseHashFunction(buf string) uint32 {
 
 //================================ API implementation ====================
 
-//基本不需要此函数
+// 重置哈希表
 func dictReset(ht *dictht) {
 	ht.table = nil
 	ht.size = 0
@@ -244,14 +248,15 @@ func dictReset(ht *dictht) {
 	ht.used = 0
 }
 
-func DictCreate(dtype *dictType, privDataPtr *interface{}) *dict {
+// 创建一个字典
+func DictCreate(dtype dictType, privDataPtr interface{}) *dict {
 	d := &dict{}
 	d.dictInit(dtype, privDataPtr)
 	return d
 }
 
 // 初始化哈希表
-func (d *dict) dictInit(dtype *dictType, privDataPtr *interface{}) int {
+func (d *dict) dictInit(dtype dictType, privDataPtr interface{}) int {
 	d.ht[0] = dictht{}
 	d.ht[1] = dictht{}
 
@@ -276,8 +281,8 @@ func (d *dict) dictResize() int {
 	return d.dictExpand(minimal)
 }
 
-// 创建一个新的哈希表，重新哈希到两个字典中未使用的字典，打开字典rehash标识
-func (d *dict) dictExpand(size uint32) int {
+// 创建一个新的哈希表，或者重新哈希到两个字典中未使用的字典，并打开字典rehash标识
+func (d *dict) dictExpand(size uint) int {
 	realSize := dictNextPower(size)
 
 	// 不能在字典进行rehash 或size小于当前已使用节点时进行
@@ -289,7 +294,7 @@ func (d *dict) dictExpand(size uint32) int {
 	n := dictht{}
 	n.size = realSize
 	n.sizemask = realSize - 1
-	n.table = make([]*DictEntry, realSize)
+	n.table = make([]*DictEntry, 0, realSize)
 	n.used = 0
 
 	// 0号哈希表为空则说明没有填充过数据，这时进行初始化
@@ -297,7 +302,7 @@ func (d *dict) dictExpand(size uint32) int {
 		d.ht[0] = n
 		return DICT_OK
 	}
-	// 如果0号哈希表为空，则开始进行渐进式rehash
+	// 如果0号哈希表非空，则开始进行rehash
 	d.ht[1] = n
 	d.rehshidx = 0
 	return DICT_OK
@@ -373,7 +378,7 @@ func (d *dict) dictRehashStep() {
 }
 
 // 将key,value 添加到字典中
-func (d *dict) dictAdd(key *interface{}, val *interface{}) int {
+func (d *dict) dictAdd(key interface{}, val interface{}) int {
 	entry := d.dictAddRaw(key)
 	if entry == nil {
 		return DICT_ERR
@@ -383,7 +388,7 @@ func (d *dict) dictAdd(key *interface{}, val *interface{}) int {
 }
 
 // 将key插入到字典中(不包括值)
-func (d *dict) dictAddRaw(key *interface{}) *DictEntry {
+func (d *dict) dictAddRaw(key interface{}) *DictEntry {
 	// 如果渐进hash在进行中，那么在新增时执行一次单步rehash
 	if dictIsRehashing(d) {
 		d.dictRehashStep()
@@ -410,7 +415,7 @@ func (d *dict) dictAddRaw(key *interface{}) *DictEntry {
 }
 
 // 添加、替换 key-value到dict中
-func (d *dict) dictReplace(key *interface{}, val *interface{}) int {
+func (d *dict) dictReplace(key interface{}, val interface{}) int {
 	// 能新增则新增后返回
 	if d.dictAdd(key, val) == DICT_OK {
 		return 1
@@ -421,7 +426,7 @@ func (d *dict) dictReplace(key *interface{}, val *interface{}) int {
 }
 
 // 添加key到dict,如果已经存在则直接返回
-func (d *dict) dictReplaceRaw(key *interface{}) *DictEntry {
+func (d *dict) dictReplaceRaw(key interface{}) *DictEntry {
 	dictEntry := dictFind(d, key)
 	if dictEntry != nil {
 		return d.dictAddRaw(key)
@@ -429,8 +434,67 @@ func (d *dict) dictReplaceRaw(key *interface{}) *DictEntry {
 	return dictEntry
 }
 
+// 查找并删除包含给定键的节点
+func dictGenericDelete(d *dict, key interface{}) int {
+	if d.ht[0].size == 0 {
+		return DICT_ERR
+	}
+
+	if dictIsRehashing(d) {
+		d.dictRehashStep()
+	}
+
+	hash := dictHashKey(d, key)
+	for table := 0; table <= 1; table++ {
+		idx := hash & d.ht[table].sizemask
+
+		// 拿到对应索引所在数组中的头结点
+		he := d.ht[table].table[idx]
+		var prevHe *DictEntry
+		for he != nil {
+			if dictCompareKeys(d, key, he.key) {
+				// 头结点就是要找的key对应节点
+				if prevHe == nil {
+					d.ht[table].table[idx] = he.next
+				} else {
+					prevHe.next = he.next
+				}
+
+				d.ht[table].used--
+				return DICT_OK
+			}
+
+			prevHe = he
+			he = he.next
+		}
+
+		// 0号哈希表未找到，且没在进行哈希，也就不用查找1号哈希表了
+		if !dictIsRehashing(d) {
+			break
+		}
+	}
+
+	return DICT_ERR
+}
+
+// 从字典中删除包含给定键的节点, 本来区分是是否调用释放函数，此处不提供不释放的实现
+var dictDelete = dictGenericDelete
+var dictDeleteNoFree = dictGenericDelete
+
+// 删除哈希表上的所有节点，重置属性
+func dictClear(d *dict, ht *dictht) int {
+	dictReset(ht)
+	return DICT_OK
+}
+
+// 删除并释放整个字典
+func dictRelease(d *dict) {
+	d.ht[0] = dictht{}
+	d.ht[1] = dictht{}
+}
+
 // 返回字典表中包含key的节点，查询不到返回nil
-func dictFind(d *dict, key *interface{}) *DictEntry {
+func dictFind(d *dict, key interface{}) *DictEntry {
 	// 0号哈希表为空则表示整个dict为空
 	if d.ht[0].sizemask == 0 {
 		return nil
@@ -458,10 +522,89 @@ func dictFind(d *dict, key *interface{}) *DictEntry {
 	return nil
 }
 
+// 返回包含指定key的value值
+func dictFetchValue(d *dict, key interface{}) interface{} {
+	he := dictFind(d, key)
+	if he == nil {
+		return nil
+	}
+	return dictGetVal(he)
+}
+
+func dictFingerprint(d *dict) int64 {
+	//todo
+	return 1
+}
+
+// 创建并返回字典的不安全迭代器
+func dictGetIterator(d *dict) *dictIterator {
+	iterator := &dictIterator{}
+	iterator.d = d
+	iterator.table = 0
+	iterator.index = -1
+	iterator.safe = 0
+	iterator.entry = nil
+	iterator.nextEntry = nil
+	return iterator
+}
+
+// 创建并返回给定节点的安全迭代器
+func dictGetSafeIterator(d *dict) *dictIterator {
+	iterator := dictGetIterator(d)
+	iterator.safe = 1
+	return iterator
+}
+
+// 返回迭代器指向的当前节点，结束返回nil
+func dictNext(iter *dictIterator) *DictEntry {
+	for {
+		if iter.entry == nil {
+			// 获取哈希表
+			ht := iter.d.ht[iter.table]
+			// 如果是第一次迭代
+			if iter.index == -1 && iter.table == 0 {
+				// 安全则更新安全迭代器计数器
+				if iter.safe == 1 {
+					iter.d.iterators++
+				} else {
+					iter.fingerprint = dictFingerprint(iter.d)
+				}
+			}
+			iter.index++
+			//
+			if iter.index >= int(ht.size) {
+				// 如果在进行rehash,则迭代1号哈希表
+				if dictIsRehashing(iter.d) && iter.table == 0 {
+					iter.table++
+					iter.index = 0
+					ht = iter.d.ht[1]
+				} else {
+					break
+				}
+			}
+
+			iter.entry = ht.table[iter.index]
+		} else {
+			iter.entry = iter.nextEntry
+		}
+
+		if iter.entry != nil {
+			iter.nextEntry = iter.entry.next
+			return iter.entry
+		}
+	}
+	return nil
+}
+
+// 释放给定字典迭代器
+func dictReleaseIterator() {
+	//todo this
+}
+
 // 计算key的索引，如果已经存在，返回-1
 // 计算时需要考虑是否在渐进rehash进程中，来决定是插入到哪个哈希表
 // 进行中插入到1号哈希表，否则插入到0号哈希表
-func dictKeyIndex(d *dict, key *interface{}) int32 {
+func dictKeyIndex(d *dict, key interface{}) int32 {
 	if dictExpandIfNeeded(d) == DICT_ERR {
 		return -1
 	}
@@ -506,7 +649,7 @@ func dictExpandIfNeeded(d *dict) int {
 }
 
 // 计算第一个大于等于size的2的N次方
-func dictNextPower(size uint32) uint32 {
+func dictNextPower(size uint) uint {
 	i := DICT_HT_INITIAL_SIZE
 	if size >= LONG_MAX {
 		return LONG_MAX + 1
