@@ -10,21 +10,17 @@ const (
 	AL_START_TAIL
 )
 
-/*
-双端链表节点
-*/
+// 双端链表节点
 type listNode struct {
 	// 前置节点
 	prev *listNode
 	// 后置节点
 	next *listNode
 	// 节点的值
-	value *interface{}
+	value interface{}
 }
 
-/*
-双端链表迭代器
-*/
+// 双端链表迭代器
 type listIter struct {
 	// 当前迭代到的节点
 	next *listNode
@@ -32,20 +28,18 @@ type listIter struct {
 	direction int
 }
 
-/*
-双端链表结构
-*/
+// 双端链表结构
 type List struct {
 	// 表头节点
 	head *listNode
 	// 表尾节点
 	tail *listNode
 	// 节点值复制函数
-	dup func(value *interface{}) *interface{}
+	dup func(value interface{}) interface{}
 	// 节点值释放函数
 	free func()
 	// 节点值对比函数
-	match func(value1 *interface{}, value2 *interface{}) bool
+	match func(value1 interface{}, value2 interface{}) bool
 	// 链表所包含的节点数量
 	len int
 }
@@ -76,12 +70,12 @@ func (list *listNode) ListNextNode() *listNode {
 }
 
 // 返回给定节点的值
-func (list *listNode) ListNodeValue() *interface{} {
+func (list *listNode) ListNodeValue() interface{} {
 	return list.value
 }
 
 // 设置链表的值复制函数为f
-func (list *List) ListSetDupMethod(f func(value *interface{}) *interface{}) {
+func (list *List) ListSetDupMethod(f func(value interface{}) interface{}) {
 	list.dup = f
 }
 
@@ -91,12 +85,12 @@ func (list *List) ListSetFreeMethod(f func()) {
 }
 
 // 设置链表的对比函数为f
-func (list *List) ListSetMatchMethod(f func(value1 *interface{}, value2 *interface{}) bool) {
+func (list *List) ListSetMatchMethod(f func(value1 interface{}, value2 interface{}) bool) {
 	list.match = f
 }
 
 // 返回链表的值复制函数
-func (list *List) ListGetDupMethod() func(value *interface{}) *interface{} {
+func (list *List) ListGetDupMethod() func(value interface{}) interface{} {
 	return list.dup
 }
 
@@ -106,7 +100,7 @@ func (list *List) ListGetFree() func() {
 }
 
 // 返回链表的值对比函数
-func (list *List) ListGetMatchMethod() func(value1 *interface{}, value2 *interface{}) bool {
+func (list *List) ListGetMatchMethod() func(value1 interface{}, value2 interface{}) bool {
 	return list.match
 }
 
@@ -128,7 +122,7 @@ func ListRelease(list *List) {
 }
 
 // 添加节点到表头，头插法
-func (list *List) ListAddNodeHead(value *interface{}) {
+func (list *List) ListAddNodeHead(value interface{}) {
 	node := &listNode{}
 	node.value = value
 	if list.len == 0 {
@@ -144,7 +138,7 @@ func (list *List) ListAddNodeHead(value *interface{}) {
 }
 
 // 添加节点到表尾，尾插法
-func (list *List) ListAddNodeTail(value *interface{}) {
+func (list *List) ListAddNodeTail(value interface{}) {
 	node := &listNode{}
 	node.value = value
 	if list.len == 0 {
@@ -162,7 +156,7 @@ func (list *List) ListAddNodeTail(value *interface{}) {
 // 创建一个新节点，将其添加到 oldNode 节点之前或之后
 // 如果 after 为 0，添加到 oldNode 节点之前
 // 如果 after 为 1，添加到 oldNode 节点之后
-func (list *List) ListInsertNode(oldNode *listNode, value *interface{}, after int) {
+func (list *List) ListInsertNode(oldNode *listNode, value interface{}, after int) {
 	node := &listNode{}
 	node.value = value
 	// 添加到给定节点之后
@@ -270,7 +264,7 @@ func (list *List) ListDup() *List {
 	iter := list.ListGetIterator(AL_START_HEAD)
 	node := ListNext(iter)
 	for node != nil {
-		var value *interface{}
+		var value interface{}
 		// 如果有复制函数，则使用复制函数复制值
 		if newList.dup != nil {
 			value = newList.dup(node.value)
@@ -296,7 +290,7 @@ func (list *List) ListDup() *List {
 // 对比操作由链表的 match 函数负责进行
 // 如果没有设置 match 函数，则直接比较值
 // 匹配成功返回第一个匹配的节点，否则返回nil
-func (list *List) ListSearchKey(key *interface{}) *listNode {
+func (list *List) ListSearchKey(key interface{}) *listNode {
 	iter := list.ListGetIterator(AL_START_HEAD)
 	node := ListNext(iter)
 	for node != nil {
