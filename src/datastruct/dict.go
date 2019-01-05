@@ -4,6 +4,8 @@
 package datastruct
 
 import (
+	"errors"
+	"math/rand"
 	"time"
 )
 
@@ -34,7 +36,7 @@ type DictEntry struct {
 // 字典类型特定函数
 type dictType struct {
 	// 计算哈希值的函数
-	hashFunction func(key interface{}) uint
+	hashFunction func(key interface{}) int
 	// 复制键的函数
 	keyDup func(privdata interface{}, key interface{}) interface{}
 	// 复制值的函数
@@ -53,12 +55,12 @@ type dictht struct {
 	// 哈希表数组
 	table []*DictEntry
 	// 哈希表大小
-	size uint
+	size int
 	// 哈希表大小掩码，用于计算索引值，总是等于 size -1
 	// 一般使用hash值 & (size-1) 来定位索引
-	sizemask uint
+	sizemask int
 	// 该哈希表已有节点的数量
-	used uint
+	used int
 }
 
 // 字典
@@ -102,7 +104,7 @@ type dictIterator struct {
 }
 
 // 哈希表的数组的初始大小
-const DICT_HT_INITIAL_SIZE uint = 4
+const DICT_HT_INITIAL_SIZE int = 4
 
 // 释放给定字典节点的值
 func (d *dict) dictFreeVal(entry DictEntry) {
@@ -157,7 +159,7 @@ func dictCompareKeys(d *dict, key1 interface{}, key2 interface{}) bool {
 }
 
 // 计算给定键的哈希值
-func dictHashKey(d *dict, key interface{}) uint {
+func dictHashKey(d *dict, key interface{}) int {
 	return d.dtype.hashFunction(key)
 }
 
@@ -182,12 +184,12 @@ func dictGetUnsignedIntegerVal(he *DictEntry) uint64 {
 }
 
 // 返回给定字典的大小
-func dictSlots(d *dict) uint {
+func dictSlots(d *dict) int {
 	return d.ht[0].size + d.ht[1].size
 }
 
 // 返回字典的已有节点数量
-func dictSize(d *dict) uint {
+func dictSize(d *dict) int {
 	return d.ht[0].size + d.ht[1].size
 }
 
@@ -199,7 +201,7 @@ func dictIsRehashing(d *dict) bool {
 //==============================
 
 // 指示字典是否启用rehash的标识
-const dict_can_resize = 1
+var dict_can_resize = 1
 
 // 强制 rehash 的比率  即 已使用节点的数量 / 字典大小
 const dict_force_resize_ratio = 5
@@ -282,7 +284,7 @@ func (d *dict) dictResize() int {
 }
 
 // 创建一个新的哈希表，或者重新哈希到两个字典中未使用的字典，并打开字典rehash标识
-func (d *dict) dictExpand(size uint) int {
+func (d *dict) dictExpand(size int) int {
 	realSize := dictNextPower(size)
 
 	// 不能在字典进行rehash 或size小于当前已使用节点时进行
@@ -597,8 +599,197 @@ func dictNext(iter *dictIterator) *DictEntry {
 }
 
 // 释放给定字典迭代器
-func dictReleaseIterator() {
-	//todo this
+func dictReleaseIterator(iter *dictIterator) {
+	// 已经开始进行迭代
+	if !(iter.index == -1 && iter.table == 0) {
+		if iter.safe == 1 {
+			iter.d.iterators--
+		} else {
+			if iter.fingerprint != dictFingerprint(iter.d) {
+				panic(errors.New("fingerprint not equals"))
+			}
+		}
+	}
+	iter = nil
+}
+
+// 随机返回一个节点
+func dictGetRandomKey(d *dict) *DictEntry {
+	if dictSize(d) == 0 {
+		return nil
+	}
+	if dictIsRehashing(d) {
+		d.dictRehashStep()
+	}
+
+	var he *DictEntry
+	if dictIsRehashing(d) {
+		h := rand.Intn(int(d.ht[0].size + d.ht[1].size))
+		for he == nil {
+			if h > d.ht[0].size {
+				he = d.ht[1].table[h-d.ht[0].size]
+			} else {
+				he = d.ht[0].table[h]
+			}
+		}
+	} else {
+		for he == nil {
+			h := uint(rand.Intn(int(d.ht[0].sizemask + 1)))
+			he = d.ht[0].table[h]
+		}
+	}
+
+	// 获取当前数组节点拥有的链表长度
+	listlen := 0
+	orighe := he
+	for he != nil {
+		he = he.next
+		listlen++
+	}
+	// 获取链表上的随机一个数据
+	listlen = rand.Intn(listlen)
+	he = orighe
+	for listlen > 0 {
+		listlen--
+		he = he.next
+	}
+	return he
+}
+
+// 随机返回count个节点，可能有重复数据
+func dictGetRandomKeys(d *dict, count int) ([]*DictEntry, int) {
+	if dictSize(d) < count {
+		count = int(dictSize(d))
+	}
+	stored := 0
+	dest := make([]*DictEntry, 0, count)
+	for stored < count {
+		for j := 0; j < 2; j++ {
+			// 随机获取一个索引
+			i := rand.Intn(d.ht[j].size)
+			size := d.ht[j].size
+
+			for size > 0 {
+				size--
+				he := d.ht[j].table[i]
+				// 将这个索引对应的链表都获取到
+				for he != nil {
+					dest = append(dest, he)
+					he = he.next
+					stored++
+					if stored == count {
+						return dest, stored
+					}
+				}
+
+				// 如果加上索引i中的数据不够，则在随机获取下一个索引
+				i = (i + 1) & d.ht[j].sizemask
+			}
+			// 到这里表示0号哈希表数据不够，这时候dict必须处于rehash中，这时去1号哈希表找
+			if !dictIsRehashing(d) {
+				panic(errors.New("must be rehashing"))
+			}
+		}
+	}
+	return dest, stored
+}
+
+// 翻转位 from: http://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel
+func rev(v uint32) uint32 {
+	var s uint32 = 8 * 32 // 8 * sizeof(v)
+	var mask uint32 = ^0
+	s = s >> 1
+	for s > 0 {
+		mask ^= (mask << s)
+		v = ((v >> s) & mask) | ((v << s) & ^mask)
+		s = s >> 1
+	}
+	return v
+}
+
+type dictScanFunction struct {
+	privdata interface{}
+	de       *DictEntry
+}
+
+// todo 改写的有些问题
+func dictScan(d *dict, v int, fn *dictScanFunction, privdata interface{}) int {
+	if dictSize(d) == 0 {
+		return 0
+	}
+	var t0, t1 *dictht
+	var de *DictEntry
+	var m0, m1 int
+	if !dictIsRehashing(d) {
+		t0 = &d.ht[0]
+		m0 = t0.sizemask
+
+		de = t0.table[v&m0]
+		for de != nil {
+			fn = &dictScanFunction{privdata, de}
+			de = de.next
+		}
+	} else {
+		t0, t1 = &d.ht[0], &d.ht[1]
+		// 确保t0的size小于t1
+		if t0.size > t1.size {
+			t0, t1 = t1, t0
+		}
+		m0, m1 = t0.sizemask, t1.sizemask
+
+		de = t0.table[v&m0]
+		for de != nil {
+			fn = &dictScanFunction{privdata, de}
+			de = de.next
+		}
+
+		res := 1
+		for res > 0 {
+			de = t1.table[v&m1]
+			for de != nil {
+				fn = &dictScanFunction{privdata, de}
+				de = de.next
+			}
+			v = (((v | m0) + 1) & ^m0) | (v & m0)
+			res = v & (m0 ^ m1)
+		}
+	}
+
+	v |= ^m0
+	v = int(rev(uint32(v)))
+	v++
+	v = int(rev(uint32(v)))
+	return v
+}
+
+// 初始化字典或者满足条件时进行扩展
+func dictExpandIfNeeded(d *dict) int {
+	// 如果已经在rehash过程中，直接返回
+	if dictIsRehashing(d) {
+		return DICT_OK
+	}
+	if d.ht[0].size == 0 {
+		return d.dictExpand(DICT_HT_INITIAL_SIZE)
+	}
+
+	if d.ht[0].used >= d.ht[0].size &&
+		(dict_can_resize == 1 || d.ht[0].used/d.ht[0].size > dict_force_resize_ratio) {
+		return d.dictExpand(d.ht[0].used * 2)
+	}
+	return DICT_OK
+
+}
+
+// 计算第一个大于等于size的2的N次方
+func dictNextPower(size int) int {
+	i := DICT_HT_INITIAL_SIZE
+	if uint(size) >= LONG_MAX {
+		return int(LONG_MAX)
+	}
+	for i < size {
+		i *= 2
+	}
+	return i
 }
 
 // 计算key的索引，如果已经存在，返回-1
@@ -630,32 +821,20 @@ func dictKeyIndex(d *dict, key interface{}) int32 {
 	return idx
 }
 
-// 初始化字典或者满足条件时进行扩展
-func dictExpandIfNeeded(d *dict) int {
-	// 如果已经在rehash过程中，直接返回
-	if dictIsRehashing(d) {
-		return DICT_OK
-	}
-	if d.ht[0].size == 0 {
-		return d.dictExpand(DICT_HT_INITIAL_SIZE)
-	}
-
-	if d.ht[0].used >= d.ht[0].size &&
-		(dict_can_resize == 1 || d.ht[0].used/d.ht[0].size > dict_force_resize_ratio) {
-		return d.dictExpand(d.ht[0].used * 2)
-	}
-	return DICT_OK
-
+// 清空所有哈希表节点
+func dictEmpty(d *dict) {
+	d.ht[0] = dictht{}
+	d.ht[1] = dictht{}
+	d.rehshidx = -1
+	d.iterators = 0
 }
 
-// 计算第一个大于等于size的2的N次方
-func dictNextPower(size uint) uint {
-	i := DICT_HT_INITIAL_SIZE
-	if size >= LONG_MAX {
-		return LONG_MAX + 1
-	}
-	for i < size {
-		i *= 2
-	}
-	return i
+// 开始自动rehash
+func dictEnableResize() {
+	dict_can_resize = 1
+}
+
+// 关闭自动rehash
+func dictDisableResize() {
+	dict_can_resize = 0
 }
