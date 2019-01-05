@@ -57,7 +57,8 @@ func sdsDup(s sds) sds {
 
 // 释放字符数组占用空间
 func sdsFree(s sds) sds {
-	return nil
+	s = nil
+	return s
 }
 
 // 将字符数组置空
