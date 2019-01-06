@@ -64,9 +64,11 @@ func zslRandomLevel() int {
 
 // 创建一个新节点，并插入跳跃表中
 func zslInsert(zsl *zskiplist, score float64, robj *redisObject) *zskiplistNode {
+	// 记录每层 开头到目标节点（要插入其后的节点）之间的距离（节点数）+ 上层的rank
 	var rank [ZSKPLIST_MAXLEVEL]int
 	var update []*zskiplistNode
 	x := zsl.header
+	// 查找各层可插入的位置，从最高一层向下逐层查找
 	for i := zsl.level - 1; i >= 0; i-- {
 		if i == zsl.level-1 {
 			rank[i] = 0
@@ -74,20 +76,21 @@ func zslInsert(zsl *zskiplist, score float64, robj *redisObject) *zskiplistNode 
 			rank[i] = rank[i+1]
 		}
 
-		forwareNode := x.level[i].forward
-		for forwareNode != nil {
-			if forwareNode.score < score ||
-				(forwareNode.score == score &&
+		node := x.level[i].forward
+		for node != nil {
+			if node.score < score ||
+				(node.score == score &&
 					compareStringObjects(x.level[i].forward.obj, robj) < 0) {
 				// 记录跨越过了多少节点
 				rank[i] += x.level[i].span
 				// 移动至下一个指针
-				x = x.level[i].forward
+				node = x.level[i].forward
 			} else {
 				break
 			}
 		}
-		update[i] = x
+		// 第i层要插入到此节点后
+		update[i] = node
 	}
 
 	level := zslRandomLevel()
@@ -102,6 +105,7 @@ func zslInsert(zsl *zskiplist, score float64, robj *redisObject) *zskiplistNode 
 
 	x = zslCreateNode(level, score, robj)
 	for i := 0; i < level; i++ {
+		// 插入节点
 		x.level[i].forward = update[i].level[i].forward
 		update[i].level[i].forward = x
 		x.level[i].span = update[i].level[i].span - (rank[0] - rank[i])
@@ -129,6 +133,30 @@ func zslInsert(zsl *zskiplist, score float64, robj *redisObject) *zskiplistNode 
 }
 
 // 内部删除函数
-func zslDeleteNode() {
-	//todo
+func zslDeleteNode(zsl *zskiplist, node *zskiplistNode, update []*zskiplistNode) {
+	for i := 0; i < zsl.level; i++ {
+		if update[i].level[i].forward == node {
+			update[i].level[i].span += node.level[i].span - 1
+			update[i].level[i].forward = node.level[i].forward
+		} else {
+			update[i].level[i].span -= 1
+		}
+	}
+
+	if node.level[0].forward != nil {
+		node.level[0].forward.backward = node.backward
+	} else {
+		zsl.tail = node.backward
+	}
+
+	for zsl.level > 1 && zsl.header.level[zsl.level-1].forward == nil {
+		zsl.level--
+	}
+	zsl.level--
+}
+
+// 删除包含score并带有指定obj的对象节点
+func zslDelet(zsl *zskiplistNode, score float64, obj *redisObject) int {
+	// todo this
+	return 1
 }
