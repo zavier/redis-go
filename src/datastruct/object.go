@@ -87,10 +87,10 @@ func compareStringObjectsWithFlags(a *redisObject, b *redisObject, flags int) in
 		panic(errors.New("type must redis string"))
 	}
 	if a == b {
-		return 0
+		return 1
 	}
 	// todo
-	return 1
+	return 0
 }
 
 func compareStringObjects(a *redisObject, b *redisObject) int {

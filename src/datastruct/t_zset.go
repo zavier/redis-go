@@ -156,7 +156,111 @@ func zslDeleteNode(zsl *zskiplist, node *zskiplistNode, update []*zskiplistNode)
 }
 
 // 删除包含score并带有指定obj的对象节点
-func zslDelet(zsl *zskiplistNode, score float64, obj *redisObject) int {
-	// todo this
+func zslDelet(zsl *zskiplist, score float64, obj *redisObject) int {
+	var update []*zskiplistNode
+	x := zsl.header
+	for i := zsl.level - 1; i > 0; i++ {
+		for x.level[i].forward != nil &&
+			(x.level[i].forward.score < score ||
+				(x.level[i].forward.score == score &&
+					compareStringObjects(x.level[i].forward.obj, obj) < 0)) {
+			x = x.level[i].forward
+		}
+		update[i] = x
+	}
+
+	x = x.level[0].forward
+	if x != nil && x.score == score && equalStringObjects(x.obj, obj) == 1 {
+		zslDeleteNode(zsl, x, update)
+		zslFreeNode(x)
+		return 1
+	} else {
+		return 0
+	}
+	return 0
+}
+
+// 检测value是否大于(或大于等于) spec中的min
+// 返回 1 表示 value 小于等于 max 项，否则返回 0
+func zslValueGteMin(value float64, spec *zrangespec) int {
+	if spec.minex == 1 {
+		if spec.min < value {
+			return 1
+		}
+	} else {
+		if spec.min <= value {
+			return 1
+		}
+	}
+	return 0
+}
+
+// 检测给定值 value 是否小于（或小于等于）范围 spec 中的 max 项
+// 返回 1 表示 value 小于等于 max 项，否则返回 0
+func zslValueLteMax(value float64, spec *zrangespec) int {
+	if spec.minex == 1 {
+		if spec.min > value {
+			return 1
+		}
+	} else {
+		if spec.min >= value {
+			return 1
+		}
+	}
+	return 0
+}
+
+// 判断给定的值是否在范围内
+func zslIsInRange(zsl *zskiplist, rge *zrangespec) int {
+	if rge.min > rge.max ||
+		(rge.min == rge.max && (rge.minex == 0 || rge.maxex == 0)) {
+		return 0
+	}
+	x := zsl.tail
+	if x == nil || zslValueGteMin(x.score, rge) == 0 {
+		return 0
+	}
+
+	x = zsl.header.level[0].forward
+	if x == nil || zslValueLteMax(x.score, rge) == 0 {
+		return 0
+	}
 	return 1
+}
+
+// 返回第一个分值符合 rge的节点
+func zslFirstInRange(zsl *zskiplist, rge *zrangespec) *zskiplistNode {
+	if zslIsInRange(zsl, rge) == 0 {
+		return nil
+	}
+	x := zsl.header
+	for i := zsl.level - 1; i >= 0; i-- {
+		for x.level[i].forward != nil &&
+			zslValueGteMin(x.level[i].forward.score, rge) == 0 {
+			x = x.level[i].forward
+		}
+	}
+
+	x = x.level[0].forward
+	if zslValueLteMax(x.score, rge) == 0 {
+		return nil
+	}
+	return x
+}
+
+func zslLastInRange() {
+	//todo this
+}
+
+// 相等返回1 否则返回0
+func equalStringObjects(a *redisObject, b *redisObject) int {
+	if a.encoding == REDIS_ENCODING_INT &&
+		b.encoding == REDIS_ENCODING_INT {
+		if a == b {
+			return 1
+		}
+		return 0
+	} else {
+		return compareStringObjects(a, b)
+	}
 }

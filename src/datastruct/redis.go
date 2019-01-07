@@ -29,6 +29,14 @@ const (
 	REDIS_ENCODING_EMBSTR // embeded string encoding
 )
 
+// 表示开闭区间的范围结构
+type zrangespec struct {
+	// 最大值和最小值
+	min, max float64
+	// 表示是否包含最大、最小值  1:包含  0:不包含
+	minex, maxex int
+}
+
 func sdsEncodedObject(objptr *redisObject) bool {
 	return objptr.encoding == REDIS_ENCODING_RAW || objptr.encoding == REDIS_ENCODING_EMBSTR
 }
