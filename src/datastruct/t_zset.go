@@ -66,7 +66,7 @@ func zslRandomLevel() int {
 func zslInsert(zsl *zskiplist, score float64, robj *redisObject) *zskiplistNode {
 	// 记录每层 开头到目标节点（要插入其后的节点）之间的距离（节点数）+ 上层的rank
 	var rank [ZSKPLIST_MAXLEVEL]int
-	var update []*zskiplistNode
+	update := make([]*zskiplistNode, ZSKPLIST_MAXLEVEL)
 	x := zsl.header
 	// 查找各层可插入的位置，从最高一层向下逐层查找
 	for i := zsl.level - 1; i >= 0; i-- {
@@ -157,7 +157,7 @@ func zslDeleteNode(zsl *zskiplist, node *zskiplistNode, update []*zskiplistNode)
 
 // 删除包含score并带有指定obj的对象节点
 func zslDelet(zsl *zskiplist, score float64, obj *redisObject) int {
-	var update []*zskiplistNode
+	update := make([]*zskiplistNode, ZSKPLIST_MAXLEVEL)
 	x := zsl.header
 	for i := zsl.level - 1; i > 0; i++ {
 		for x.level[i].forward != nil &&
@@ -242,14 +242,80 @@ func zslFirstInRange(zsl *zskiplist, rge *zrangespec) *zskiplistNode {
 	}
 
 	x = x.level[0].forward
+	// 检测是否在范围内
 	if zslValueLteMax(x.score, rge) == 0 {
 		return nil
 	}
 	return x
 }
 
-func zslLastInRange() {
-	//todo this
+// 返回 zsl 中最后一个分值符合 range 中指定范围的节点
+func zslLastInRange(zsl *zskiplist, rge *zrangespec) *zskiplistNode {
+	if zslIsInRange(zsl, rge) == 0 {
+		return nil
+	}
+
+	x := zsl.header
+	for i := zsl.level - 1; i >= 0; i-- {
+		for x.level[i].forward != nil &&
+			zslValueLteMax(x.level[i].forward.score, rge) == 1 {
+			x = x.level[i].forward
+		}
+	}
+	// 检测是否在范围内
+	if zslValueGteMin(x.score, rge) == 0 {
+		return nil
+	}
+	return x
+}
+
+// 删除所有分值在给定范围内的节点
+func zslDeleteRangeByScore(zsl *zskiplist, rge *zrangespec, d *dict) int {
+	update := make([]*zskiplistNode, ZSKPLIST_MAXLEVEL)
+	removed := 0
+	x := zsl.header
+	for i := zsl.level - 1; i >= 0; i-- {
+		for x.level[i].forward != nil {
+			minex := rge.minex
+			if minex == 1 {
+				if x.level[i].forward.score > rge.min {
+					break
+				}
+			} else {
+				if x.level[i].forward.score >= rge.min {
+					break
+				}
+			}
+			x = x.level[i].forward
+		}
+		update[i] = x
+	}
+
+	x = x.level[0].forward
+
+	for x != nil {
+		if rge.maxex == 1 {
+			if x.score >= rge.max {
+				break
+			}
+		} else {
+			if x.score > rge.max {
+				break
+			}
+		}
+
+		next := x.level[0].forward
+		zslDeleteNode(zsl, x, update)
+		dictDelete(d, x.obj)
+		zslFreeNode(x)
+		removed++
+		x = next
+	}
+	return removed
+}
+
+func zslDeleteRangeByLex() {
+	// todo this
 }
 
 // 相等返回1 否则返回0
