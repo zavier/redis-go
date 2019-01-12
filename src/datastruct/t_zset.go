@@ -2,6 +2,9 @@ package datastruct
 
 import "math/rand"
 
+// 全局共享变量
+var shared SharedObjectsStruct = SharedObjectsStruct{}
+
 // 创建一个层数为level的跳跃表节点
 // 成员对象为 obj, 分值为 score
 func zslCreateNode(level int, score float64, obj *redisObject) *zskiplistNode {
@@ -314,8 +317,63 @@ func zslDeleteRangeByScore(zsl *zskiplist, rge *zrangespec, d *dict) int {
 	return removed
 }
 
-func zslDeleteRangeByLex() {
-	// todo this
+func zslDeleteRangeByLex(zsl *zskiplist, rge *zlexrangespec, d *dict) int {
+	update := make([]*zskiplistNode, ZSKPLIST_MAXLEVEL)
+	var removed = 0
+	x := zsl.header
+
+	i := zsl.level - 1
+	for ; i >= 0; i-- {
+		for x.level[i].forward != nil && zslLexValueGteMin(x.level[i].forward.obj, rge) == false {
+			x = x.level[i].forward
+		}
+		update[i] = x
+	}
+
+	x = x.level[0].forward
+	for x != nil && zslLexValueGteMax(x.obj, rge) {
+		next := x.level[0].forward
+
+		zslDeleteNode(zsl, x, update)
+		dictDelete(d, x.obj)
+		zslFreeNode(x)
+		removed++
+		x = next
+	}
+	return removed
+}
+
+func zslDeleteRangeByRank() {
+	//todo this
+}
+
+func compareStringObjectsForLexRange(a *redisObject, b *redisObject) int {
+	if a == b {
+		return 0
+	}
+	if a == shared.minstring || b == shared.maxstring {
+		return -1
+	}
+	if a == shared.maxstring || b == shared.minstring {
+		return 1
+	}
+	return compareStringObjects(a, b)
+}
+
+func zslLexValueGteMin(value *redisObject, spec *zlexrangespec) bool {
+	if spec.minex == 1 {
+		return compareStringObjectsForLexRange(value, spec.min) > 0
+	} else {
+		return compareStringObjectsForLexRange(value, spec.min) >= 0
+	}
+}
+
+func zslLexValueGteMax(value *redisObject, spec *zlexrangespec) bool {
+	if spec.minex == 1 {
+		return compareStringObjectsForLexRange(value, spec.max) > 0
+	} else {
+		return compareStringObjectsForLexRange(value, spec.max) >= 0
+	}
 }
 
 // 相等返回1 否则返回0

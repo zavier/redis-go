@@ -29,11 +29,23 @@ const (
 	REDIS_ENCODING_EMBSTR // embeded string encoding
 )
 
+// static server configuration
+const (
+	REDIS_SHARED_SELECT_CMDS = 10
+	REDIS_SHARED_INTEGERS    = 10000
+	REDIS_SHARED_BULKHDR_LEN = 32
+)
+
 // 表示开闭区间的范围结构
 type zrangespec struct {
 	// 最大值和最小值
 	min, max float64
 	// 表示是否包含最大、最小值  1:包含  0:不包含
+	minex, maxex int
+}
+
+type zlexrangespec struct {
+	min, max     *redisObject
 	minex, maxex int
 }
 
@@ -55,6 +67,22 @@ type redisObject struct {
 	refcount int
 	// 指向实际值的指针
 	ptr unsafe.Pointer
+}
+
+// 共享结构
+type SharedObjectsStruct struct {
+	crlf, ok, err, emptybulk, czero, cont, cegone, pong, space,
+	colon, nullbulk, nullmultibulk, queued, emptymultibulk, wrongtypeerr,
+	nokeyerr, syntaxerr, sameobjecterr, outofrangeerr, noscripterr, loadingerr,
+	slowscripterr, bgsaveerr, masterdownerr, roslaveerr, execaborterr,
+	noautherr, noreplicaserr, busykeyerr, oomerr, plus, messagebulk, pmessagebulk,
+	subscribebulk, unsubscribebulk, psubscribebulk, punsubscribebulk, del,
+	rpop, lpop, lpush, emptyscan, minstring, maxstring *redisObject
+
+	sel      [REDIS_SHARED_SELECT_CMDS]*redisObject
+	integers [REDIS_SHARED_INTEGERS]*redisObject
+	mbulkhdr [REDIS_SHARED_BULKHDR_LEN]*redisObject
+	bulkhdr  [REDIS_SHARED_BULKHDR_LEN]*redisObject
 }
 
 // 跳跃表节点
