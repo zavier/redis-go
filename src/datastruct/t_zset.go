@@ -343,8 +343,78 @@ func zslDeleteRangeByLex(zsl *zskiplist, rge *zlexrangespec, d *dict) int {
 	return removed
 }
 
-func zslDeleteRangeByRank() {
-	//todo this
+// 删除start-end之间的所有节点（从1开始）
+func zslDeleteRangeByRank(zsl *zskiplist, start int, end int, d *dict) int {
+	update := make([]*zskiplistNode, ZSKPLIST_MAXLEVEL)
+	traversed, removed := 0, 0
+
+	x := zsl.header
+	var i int
+	for i = zsl.level - 1; i >= 0; i-- {
+		for x.level[i].forward != nil &&
+			traversed+x.level[i].span < start {
+			traversed += x.level[i].span
+			x = x.level[i].forward
+		}
+		update[i] = x
+	}
+
+	traversed++
+	x = x.level[0].forward
+
+	for x != nil && traversed <= end {
+		next := x.level[0].forward
+		zslDeleteNode(zsl, x, update)
+		dictDelete(d, x.obj)
+		zslFreeNode(x)
+		removed++
+		traversed++
+		x = next
+	}
+
+	return removed
+}
+
+// 查找包含执行值和对象的排位, 索引从1开始，未找到返回0
+func zslGetRand(zsl *zskiplist, score float64, o *redisObject) int {
+	rank := 0
+	x := zsl.header
+	var i int
+	for x.level[i].forward != nil &&
+		(x.level[i].forward.score < score ||
+			(x.level[i].forward.score == score &&
+				compareStringObjects(x.level[i].forward.obj, o) <= 0)) {
+		rank += x.level[i].span
+		x = x.level[i].forward
+	}
+
+	if x.obj != nil && equalStringObjects(x.obj, o) == 1 {
+		return rank
+	}
+	return 0
+}
+
+// 根据排位（从1开始）查找元素
+func zslGetElementByRank(zsl *zskiplist, rank int) *zskiplistNode {
+	x := zsl.header
+	traversed := 0
+	var i int
+	for i = zsl.level - 1; i >= 0; i-- {
+		for x.level[i].forward != nil &&
+			traversed+x.level[i].span <= rank {
+			traversed += x.level[i].span
+			x = x.level[i].forward
+		}
+
+		if traversed == rank {
+			return x
+		}
+	}
+	return nil
+}
+
+func zslParseRange(min *redisObject, max *redisObject, spec *zrangespec) int {
+	// todo this
 }
 
 func compareStringObjectsForLexRange(a *redisObject, b *redisObject) int {
