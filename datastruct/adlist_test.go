@@ -46,7 +46,7 @@ func TestList(t *testing.T) {
 
 	next = ListNext(iterator)
 	if next != nil {
-		t.Errorf("expect nil, actual %d", next)
+		t.Errorf("expect nil, actual %d", next.value)
 	}
 
 	index := list.ListIndex(3)

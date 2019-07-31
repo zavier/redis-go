@@ -114,3 +114,9 @@ type zskiplist struct {
 	// 表中层数最大的节点层数
 	level int
 }
+
+// zset结构
+type zset struct {
+	dict *dict
+	zsl  *zskiplist
+}

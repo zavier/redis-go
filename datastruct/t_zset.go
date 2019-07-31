@@ -415,6 +415,7 @@ func zslGetElementByRank(zsl *zskiplist, rank int) *zskiplistNode {
 
 func zslParseRange(min *redisObject, max *redisObject, spec *zrangespec) int {
 	// todo this
+	return 1
 }
 
 func compareStringObjectsForLexRange(a *redisObject, b *redisObject) int {

@@ -696,14 +696,7 @@ func dictGetRandomKeys(d *dict, count int) ([]*DictEntry, int) {
 
 // 翻转位 from: http://graphics.stanford.edu/~seander/bithacks.html#ReverseParallel
 func rev(v uint32) uint32 {
-	var s uint32 = 8 * 32 // 8 * sizeof(v)
-	var mask uint32 = ^0
-	s = s >> 1
-	for s > 0 {
-		mask ^= (mask << s)
-		v = ((v >> s) & mask) | ((v << s) & ^mask)
-		s = s >> 1
-	}
+	// todo
 	return v
 }
 
