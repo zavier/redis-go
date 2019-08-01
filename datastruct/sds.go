@@ -8,7 +8,7 @@ import (
 // buf最大预分配长度
 const SDS_MAX_PREALLOC = 1024 * 1024
 
-// 直接使用sds为数据切片，sdshdr相关可以用切片的属性替代
+// *****************直接使用sds为数据切片，sdshdr相关可以用切片的属性替代*****************
 // type slice struct {
 //	array unsafe.Pointer
 //	len   int

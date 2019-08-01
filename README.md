@@ -1,1 +1,1 @@
-模仿Redis 3.0源码，使用Go 语言写一个简单的Redis
+模仿Redis源码，使用Go 语言写一个简单的Redis

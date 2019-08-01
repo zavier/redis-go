@@ -1,5 +1,5 @@
 /*
-Redis(3.0)中双端链表实现的简单仿写
+Redis中双端链表实现的简单仿写
 */
 package datastruct
 
@@ -117,8 +117,11 @@ func ListCreate() (list *List, err error) {
 }
 
 // 释放整个链表，以及链表中的所有节点
-func ListRelease(list *List) {
-	list = nil
+func ListEmpty(list *List) {
+	list.head, list.tail = nil, nil
+	list.dup, list.free = nil, nil
+	list.len = 0
+	list.match = nil
 }
 
 // 添加节点到表头，头插法
@@ -221,7 +224,7 @@ func (list *List) ListGetIterator(direction int) *listIter {
 
 // 释放迭代器
 func ListReleaseIterator(iter *listIter) {
-	iter = nil
+	// 由于垃圾回收，不需要此方法
 }
 
 // 将迭代器的方向设置为 AL_START_HEAD
@@ -269,8 +272,7 @@ func (list *List) ListDup() *List {
 		if newList.dup != nil {
 			value = newList.dup(node.value)
 			if value == nil {
-				ListRelease(newList)
-				ListReleaseIterator(iter)
+				newList = nil
 				return nil
 			}
 		} else {
@@ -281,8 +283,6 @@ func (list *List) ListDup() *List {
 
 		node = ListNext(iter)
 	}
-	// 释放迭代器
-	ListReleaseIterator(iter)
 	return newList
 }
 
@@ -296,18 +296,15 @@ func (list *List) ListSearchKey(key interface{}) *listNode {
 	for node != nil {
 		if list.match != nil {
 			if list.match(node.value, key) {
-				ListReleaseIterator(iter)
 				return node
 			}
 		} else {
 			if key == node.value {
-				ListReleaseIterator(iter)
 				return node
 			}
 		}
 		node = ListNext(iter)
 	}
-	ListReleaseIterator(iter)
 	return nil
 }
 
@@ -348,4 +345,24 @@ func (list *List) ListRotate() {
 	tail.prev = nil
 	tail.next = list.head
 	list.head = tail
+}
+
+// 将 o 中的元素全部迁移到当前链表的末尾
+func (l *List) ListJoin(o *List) {
+	if o.head != nil {
+		o.head.prev = l.tail
+	}
+
+	if l.tail != nil {
+		l.tail.next = o.head
+	} else {
+		l.head = o.head
+	}
+
+	if o.tail != nil {
+		l.tail = o.tail
+	}
+	l.len += o.len
+
+	o.head, o.tail, o.len = nil, nil, 0
 }

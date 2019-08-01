@@ -18,7 +18,7 @@ func freeStringObject(robj *redisObject) {
 func freeListObject(robj *redisObject) {
 	switch robj.encoding {
 	case REDIS_ENCODING_LINKEDLIST:
-		ListRelease((*List)(robj.ptr))
+		robj.ptr = nil
 	case REDIS_ENCODING_ZIPLIST:
 		robj.ptr = nil
 	default:
